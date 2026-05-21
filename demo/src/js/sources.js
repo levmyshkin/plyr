@@ -1,7 +1,19 @@
 const sources = {
+  mux: {
+    type: 'video',
+    title: 'View From A Blue Moon',
+    ratio: '16:9',
+    hlsSource: 'https://stream.mux.com/lyrKpPcGfqyzeI00jZAfW6MvP6GNPrkML.m3u8',
+    poster: 'https://image.mux.com/lyrKpPcGfqyzeI00jZAfW6MvP6GNPrkML/thumbnail.jpg',
+    previewThumbnails: {
+      enabled: true,
+      src: 'https://image.mux.com/lyrKpPcGfqyzeI00jZAfW6MvP6GNPrkML/storyboard.vtt',
+    },
+  },
   video: {
     type: 'video',
     title: 'View From A Blue Moon',
+    ratio: '16:9',
     sources: [
       {
         src: 'https://cdn.plyr.io/static/demo/View_From_A_Blue_Moon_Trailer-576p.mp4',
@@ -41,7 +53,36 @@ const sources = {
       },
     ],
     previewThumbnails: {
+      enabled: true,
       src: ['https://cdn.plyr.io/static/demo/thumbs/100p.vtt', 'https://cdn.plyr.io/static/demo/thumbs/240p.vtt'],
+    },
+    mediaMetadata: {
+      title: 'View From A Blue Moon',
+      album: 'Sports',
+      artist: 'Brainfarm',
+      artwork: [
+        {
+          src: 'https://cdn.plyr.io/static/demo/View_From_A_Blue_Moon_Trailer-HD.jpg',
+          type: 'image/jpeg',
+        },
+      ],
+    },
+    markers: {
+      enabled: true,
+      points: [
+        {
+          time: 10,
+          label: 'First marker',
+        },
+        {
+          time: 40,
+          label: 'Second marker',
+        },
+        {
+          time: 120,
+          label: '<strong>Third</strong> marker',
+        },
+      ],
     },
   },
   audio: {
@@ -60,15 +101,28 @@ const sources = {
   },
   youtube: {
     type: 'video',
+    ratio: '16:9',
     sources: [
       {
         src: 'https://youtube.com/watch?v=bTqVqk7FSmY',
         provider: 'youtube',
       },
     ],
+    mediaMetadata: {
+      title: 'View From A Blue Moon',
+      album: 'Sports',
+      artist: 'Brainfarm',
+      artwork: [
+        {
+          src: 'https://cdn.plyr.io/static/demo/View_From_A_Blue_Moon_Trailer-HD.jpg',
+          type: 'image/jpeg',
+        },
+      ],
+    },
   },
   vimeo: {
     type: 'video',
+    ratio: '16:9',
     sources: [
       {
         src: 'https://vimeo.com/40648169',

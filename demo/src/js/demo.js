@@ -4,14 +4,36 @@
 // Please see README.md in the root or github.com/sampotts/plyr
 // ==========================================================================
 
-import 'custom-event-polyfill';
-import 'url-polyfill';
-
 import * as Sentry from '@sentry/browser';
 import Shr from 'shr-buttons';
 
 import Plyr from '../../../src/js/plyr';
 import sources from './sources';
+
+import 'custom-event-polyfill';
+import 'url-polyfill';
+
+const commonConfig = {
+  iconUrl: 'dist/demo.svg',
+  debug: true,
+  keyboard: {
+    global: true,
+  },
+  tooltips: {
+    controls: true,
+  },
+  captions: {
+    active: true,
+  },
+  fullscreen: {
+    iosNative: true,
+  },
+  playsinline: true,
+  vimeo: {
+    // Prevent Vimeo blocking plyr.io demo site
+    referrerPolicy: 'no-referrer',
+  },
+};
 
 (() => {
   const production = 'plyr.io';
@@ -19,10 +41,13 @@ import sources from './sources';
 
   // Sentry for demo site (https://plyr.io) only
   if (isProduction) {
-    Sentry.init({
-      dsn: 'https://d4ad9866ad834437a4754e23937071e4@sentry.io/305555',
-      whitelistUrls: [production].map((d) => new RegExp(`https://(([a-z0-9])+(.))*${d}`)),
-    });
+    try {
+      Sentry.init({
+        dsn: 'https://d4ad9866ad834437a4754e23937071e4@sentry.io/305555',
+        whitelistUrls: [production].map(d => new RegExp(`https://(([a-z0-9])+(.))*${d}`)),
+      });
+    }
+    catch {}
   }
 
   document.addEventListener('DOMContentLoaded', () => {
@@ -38,86 +63,62 @@ import sources from './sources';
       },
     });
 
-    // Setup the player
-    const player = new Plyr(selector, {
-      debug: true,
-      title: 'View From A Blue Moon',
-      iconUrl: 'dist/demo.svg',
-      keyboard: {
-        global: true,
-      },
-      tooltips: {
-        controls: true,
-      },
-      captions: {
-        active: true,
-      },
-      /* ads: {
-        enabled: isProduction,
-        publisherId: '918848828995742',
-      }, */
-      previewThumbnails: {
-        enabled: true,
-        src: ['https://cdn.plyr.io/static/demo/thumbs/100p.vtt', 'https://cdn.plyr.io/static/demo/thumbs/240p.vtt'],
-      },
-      vimeo: {
-        // Prevent Vimeo blocking plyr.io demo site
-        referrerPolicy: 'no-referrer',
-      },
-      mediaMetadata: {
-        title: 'View From A Blue Moon',
-        album: 'Sports',
-        artist: 'Brainfarm',
-        artwork: [
-          {
-            src: 'https://cdn.plyr.io/static/demo/View_From_A_Blue_Moon_Trailer-HD.jpg',
-            type: 'image/jpeg',
-          },
-        ],
-      },
-      markers: {
-        enabled: true,
-        points: [
-          {
-            time: 10,
-            label: 'first marker',
-          },
-          {
-            time: 40,
-            label: 'second marker',
-          },
-          {
-            time: 120,
-            label: '<strong>third</strong> marker',
-          },
-        ],
-      },
-    });
-
-    // Expose for tinkering in the console
-    window.player = player;
-
     // Setup type toggle
     const buttons = document.querySelectorAll('[data-source]');
     const types = Object.keys(sources);
     const historySupport = Boolean(window.history && window.history.pushState);
     let currentType = window.location.hash.substring(1);
-    const hasInitialType = currentType.length;
+    const hasInitialType = Boolean(currentType);
+    // If there's no current type set, assume video
+    if (!hasInitialType) currentType = 'video';
+
+    // Setup the player as video by default
+    const player = new Plyr(selector, {
+      ...commonConfig,
+      ...sources[currentType],
+    });
+
+    // Expose for tinkering in the console
+    window.player = player;
+
+    function togglePlayerVisibility(player, show) {
+      if (player?.elements?.container) {
+        player.elements.container.hidden = !show;
+        if (player.media) {
+          player.media.hidden = !show;
+          if (!show) player.pause();
+        }
+      }
+    }
+    function showHlsPlayer() {
+      togglePlayerVisibility(window.player, false);
+      togglePlayerVisibility(window.playerHls, true);
+    }
+    function showMainPlayer() {
+      togglePlayerVisibility(window.player, true);
+      togglePlayerVisibility(window.playerHls, false);
+    }
 
     function render(type) {
       // Remove active classes
-      Array.from(buttons).forEach((button) => button.parentElement.classList.toggle('active', false));
+      Array.from(buttons).forEach(button => button.classList.toggle('active', false));
 
       // Set active on parent
       document.querySelector(`[data-source="${type}"]`).classList.toggle('active', true);
 
       // Show cite
       Array.from(document.querySelectorAll('.plyr__cite')).forEach((cite) => {
-        // eslint-disable-next-line no-param-reassign
         cite.hidden = true;
       });
 
       document.querySelector(`.plyr__cite--${type}`).hidden = false;
+
+      if (type === 'mux') {
+        showHlsPlayer();
+      }
+      else {
+        showMainPlayer();
+      }
     }
 
     // Set a new source
@@ -127,12 +128,28 @@ import sources from './sources';
         return;
       }
 
-      // Set the new source
-      player.source = sources[type];
-
+      const sourceConfig = sources[type];
+      const hlsSource = sourceConfig.hlsSource;
+      if (hlsSource) {
+        const playerHls = new Plyr('#player-hls', { ...commonConfig, ...sourceConfig });
+        window.playerHls = playerHls;
+        const video = playerHls.media;
+        if (Hls.isSupported()) {
+          const hls = new Hls();
+          hls.loadSource(hlsSource);
+          hls.attachMedia(video);
+        }
+        else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+          // eslint-disable-next-line no-undef
+          video.src = videoSrc;
+        }
+      }
+      else {
+        window.playerHls?.destroy();
+        player.source = sourceConfig;
+      }
       // Set the current type for next time
       currentType = type;
-
       render(type);
     }
 
@@ -140,7 +157,6 @@ import sources from './sources';
     Array.from(buttons).forEach((button) => {
       button.addEventListener('click', () => {
         const type = button.getAttribute('data-source');
-
         setSource(type);
 
         if (historySupport) {
@@ -155,11 +171,6 @@ import sources from './sources';
         setSource(event.state.type);
       }
     });
-
-    // If there's no current type set, assume video
-    if (!hasInitialType) {
-      currentType = 'video';
-    }
 
     // Replace current history state
     if (historySupport && types.includes(currentType)) {
